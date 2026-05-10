@@ -225,6 +225,12 @@ export const useLiveAPI = () => {
   const initSpotifyPlayer = async () => {
     if (spotifyPlayerRef.current) return;
 
+    // Wait for Spotify to be available if script is already loading
+    if ((window as any).Spotify) {
+      handleSpotifyReady();
+      return;
+    }
+
     // Load SDK script if not already loaded
     if (!document.getElementById('spotify-sdk')) {
       const script = document.createElement('script');
@@ -234,51 +240,47 @@ export const useLiveAPI = () => {
       document.body.appendChild(script);
     }
 
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      const player = new window.Spotify.Player({
-        name: 'JARVIS Neural Link',
-        getOAuthToken: async (cb: (token: string) => void) => {
-          const res = await fetch('/api/spotify/token');
-          const data = await res.json();
-          cb(data.token);
-        },
-        volume: 0.5
+    (window as any).onSpotifyWebPlaybackSDKReady = handleSpotifyReady;
+  };
+
+  const handleSpotifyReady = () => {
+    if (spotifyPlayerRef.current || !window.Spotify) return;
+    
+    const player = new window.Spotify.Player({
+      name: 'JARVIS Neural Link',
+      getOAuthToken: async (cb: (token: string) => void) => {
+        const res = await fetch('/api/spotify/token');
+        const data = await res.json();
+        cb(data.token);
+      },
+      volume: 0.5
+    });
+
+    player.addListener('ready', ({ device_id }: { device_id: string }) => {
+      console.log('Spotify Player Ready with Device ID', device_id);
+      setSpotifyDeviceId(device_id);
+      
+      player.activateElement().catch((e: any) => console.error("Activate Element Error:", e));
+
+      fetch('/api/spotify/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id })
       });
+    });
 
-      player.addListener('ready', ({ device_id }: { device_id: string }) => {
-        console.log('Spotify Player Ready with Device ID', device_id);
-        setSpotifyDeviceId(device_id);
-        
-        // Activate the player element to satisfy autoplay policies
-        player.activateElement().catch((e: any) => console.error("Activate Element Error:", e));
+    player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
+      console.log('Device ID has gone offline', device_id);
+    });
 
-        // Automatically transfer playback to this device
-        fetch('/api/spotify/transfer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ device_id })
-        });
-      });
-
-      player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
-        console.log('Device ID has gone offline', device_id);
-      });
-
-      player.addListener('initialization_error', ({ message }: { message: string }) => {
-        console.error('Spotify Init Error:', message);
-      });
-
-      player.addListener('authentication_error', ({ message }: { message: string }) => {
-        console.error('Spotify Auth Error:', message);
-      });
-
-      player.connect();
-      spotifyPlayerRef.current = player;
-    };
+    player.connect();
+    spotifyPlayerRef.current = player;
   };
 
   const playNextInQueue = useCallback(() => {
     if (!audioContextRef.current || audioQueueRef.current.length === 0) {
+      setIsSpeaking(false);
+      nextStartTimeRef.current = 0;
       return;
     }
 
@@ -298,7 +300,7 @@ export const useLiveAPI = () => {
 
     const currentTime = audioContext.currentTime;
     if (nextStartTimeRef.current < currentTime) {
-      nextStartTimeRef.current = currentTime + 0.02; // Reduced buffer for lower latency
+      nextStartTimeRef.current = currentTime + 0.05; // Slightly larger buffer to prevent crackling
     }
 
     source.start(nextStartTimeRef.current);
@@ -312,7 +314,6 @@ export const useLiveAPI = () => {
         playNextInQueue();
       } else {
         setIsSpeaking(false);
-        // Reset timing when queue is empty to avoid drift
         nextStartTimeRef.current = 0;
       }
     };
@@ -1203,7 +1204,15 @@ export const useLiveAPI = () => {
           downsampledData[i] = Math.max(-1, Math.min(1, sample)) * 0x7FFF;
         }
 
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(downsampledData.buffer)));
+        // Safer base64 conversion for large buffers
+        const uint8 = new Uint8Array(downsampledData.buffer);
+        let binary = '';
+        const len = uint8.length;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(uint8[i]);
+        }
+        const base64 = btoa(binary);
+
         session.sendRealtimeInput({
           audio: { data: base64, mimeType: 'audio/pcm;rate=16000' }
         });

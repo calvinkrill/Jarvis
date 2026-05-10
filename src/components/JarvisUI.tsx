@@ -87,14 +87,24 @@ export const JarvisUI: React.FC = () => {
 
   useEffect(() => {
     const updateGreeting = () => {
-      const hour = new Date().getHours();
+      // Use Philippines time for greeting calculation
+      const phTimeStr = new Date().toLocaleTimeString('en-PH', { 
+        hour12: false, 
+        hour: '2-digit', 
+        timeZone: 'Asia/Manila' 
+      });
+      const hour = parseInt(phTimeStr);
+      
       if (hour >= 5 && hour < 12) setGreeting('Good morning');
       else if (hour >= 12 && hour < 18) setGreeting('Good afternoon');
       else setGreeting('Good evening');
     };
     updateGreeting();
     const timer = setInterval(() => {
-      setPhTime(new Date().toLocaleTimeString('en-PH', { hour12: false, timeZone: 'Asia/Manila' }));
+      setPhTime(new Date().toLocaleTimeString('en-PH', { 
+        hour12: false, 
+        timeZone: 'Asia/Manila' 
+      }));
       updateGreeting();
     }, 1000);
     return () => clearInterval(timer);
@@ -150,10 +160,42 @@ export const JarvisUI: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-jarvis-dark flex flex-col items-center justify-center p-4 md:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-jarvis-dark flex flex-col items-center justify-center p-4 md:p-6 lg:p-8 relative overflow-hidden selection:bg-jarvis-blue/30 selection:text-jarvis-blue">
       <Particles />
       
-      <WorkspaceHUD mode={workspaceMode} isProcessing={isProcessing} />
+      {/* Responsive HUD */}
+      <div className="fixed top-4 left-4 md:top-6 md:left-6 z-40 scale-90 md:scale-100 origin-top-left">
+        <WorkspaceHUD mode={workspaceMode} isProcessing={isProcessing} />
+      </div>
+
+      {/* Responsive Profile & Time */}
+      <div className="fixed top-4 right-4 md:top-6 md:right-6 z-40 flex flex-col items-end gap-2 md:gap-3 scale-90 md:scale-100 origin-top-right">
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end">
+            <span className="text-[8px] md:text-[10px] font-mono text-white/40 uppercase tracking-widest">{greeting}, {userProfile.name}</span>
+            <span className="text-xs md:text-sm font-display text-jarvis-blue">{phTime}</span>
+          </div>
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full border border-jarvis-blue/30 flex items-center justify-center bg-jarvis-blue/5 shadow-[0_0_15px_rgba(0,242,255,0.1)]">
+            <Activity size={16} className="text-jarvis-blue animate-pulse" />
+          </div>
+        </div>
+
+        {/* Productivity Stats */}
+        <div className="flex gap-2">
+          <div className="glass-panel px-2 md:px-3 py-1 md:py-1.5 flex items-center gap-2 border-white/5">
+            <div className="flex flex-col items-end">
+              <span className="text-[5px] md:text-[6px] font-mono text-white/20 uppercase leading-none">Status</span>
+              <span className="text-[8px] md:text-[10px] font-display text-amber-400 uppercase">Lvl {userProfile.level}</span>
+            </div>
+          </div>
+          <div className="glass-panel px-2 md:px-3 py-1 md:py-1.5 flex items-center gap-2 border-white/5">
+            <div className="flex flex-col items-end">
+              <span className="text-[5px] md:text-[6px] font-mono text-white/20 uppercase leading-none">Continuity</span>
+              <span className="text-[8px] md:text-[10px] font-display text-emerald-400 uppercase">{userProfile.streak}D</span>
+            </div>
+          </div>
+        </div>
+      </div>
       
       {/* Error Banner */}
       <AnimatePresence>
@@ -162,24 +204,24 @@ export const JarvisUI: React.FC = () => {
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-md"
+            className="fixed top-20 md:top-24 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-md"
           >
             <div className="glass-panel border-red-500/50 bg-red-500/10 p-4 flex items-start gap-4 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
-              <div className="p-2 rounded-lg bg-red-500/20 text-red-500">
+              <div className="p-2 rounded-lg bg-red-500/20 text-red-500 shrink-0">
                 <Shield size={20} />
               </div>
               <div className="flex-1">
-                <h3 className="text-xs font-display uppercase tracking-widest text-red-500 mb-1">System Alert</h3>
-                <p className="text-xs text-white/70 font-mono leading-relaxed mb-3">
+                <h3 className="text-xs font-display uppercase tracking-widest text-red-500 mb-1">System Entropy Detected</h3>
+                <p className="text-[10px] md:text-xs text-white/70 font-mono leading-relaxed mb-3">
                   {error.includes("leaked") 
-                    ? "Your API key has been compromised and disabled by Google. Please select a new API key to restore service."
+                    ? "Security breach detected. API key compromised. Please rotate credentials immediately."
                     : error}
                 </p>
                 <button
                   onClick={openKeySelector}
-                  className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-500 text-[10px] font-display uppercase tracking-widest hover:bg-red-500/30 transition-all"
+                  className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-500 text-[10px] font-display uppercase tracking-widest hover:bg-red-500/30 transition-all font-bold"
                 >
-                  Change API Key
+                  Configure Neural Key
                 </button>
               </div>
             </div>
@@ -195,13 +237,29 @@ export const JarvisUI: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             onClick={() => setCurrentView('main')}
-            className="fixed top-32 left-6 z-40 p-3 rounded-xl glass-panel border-white/10 text-white/40 hover:text-jarvis-blue hover:border-jarvis-blue/30 transition-all flex items-center gap-2 group"
+            className="fixed top-28 left-4 md:top-32 md:left-6 z-40 p-2 md:p-3 rounded-xl glass-panel border-white/10 text-white/40 hover:text-jarvis-blue hover:border-jarvis-blue/30 transition-all flex items-center gap-2 group"
           >
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-[10px] font-display uppercase tracking-widest">Back to Main</span>
+            <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-[8px] md:text-[10px] font-display uppercase tracking-widest">Back to Dashboard</span>
           </motion.button>
         )}
       </AnimatePresence>
+
+      {/* Floating Action Menu for Mobile */}
+      <div className="fixed bottom-20 right-4 md:hidden z-40 flex flex-col gap-2">
+         <button 
+           onClick={() => setCurrentView('chat')}
+           className="p-4 rounded-full bg-jarvis-blue border border-jarvis-blue/50 text-black shadow-[0_0_20px_rgba(0,242,255,0.4)]"
+         >
+           <MessageSquare size={20} />
+         </button>
+         <button 
+           onClick={() => setIsCommandPaletteOpen(true)}
+           className="p-4 rounded-full bg-white/10 border border-white/20 text-white backdrop-blur-md"
+         >
+           <CommandIcon size={20} />
+         </button>
+      </div>
 
       {/* Install App Button */}
       <AnimatePresence>
@@ -211,47 +269,19 @@ export const JarvisUI: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             onClick={handleInstall}
-            className="fixed bottom-24 right-6 z-40 p-3 rounded-xl glass-panel border-jarvis-blue/30 text-jarvis-blue hover:bg-jarvis-blue/10 transition-all flex items-center gap-2 group shadow-[0_0_20px_rgba(0,242,255,0.2)]"
+            className="fixed bottom-24 right-4 md:right-6 z-40 p-2 md:p-3 rounded-xl glass-panel border-jarvis-blue/30 text-jarvis-blue hover:bg-jarvis-blue/10 transition-all flex items-center gap-2 group shadow-[0_0_20px_rgba(0,242,255,0.2)] md:flex hidden"
           >
-            <Download size={16} className="group-hover:bounce" />
-            <span className="text-[10px] font-display uppercase tracking-widest">Install JARVIS App</span>
+            <Download size={14} className="group-hover:bounce" />
+            <span className="text-[8px] md:text-[10px] font-display uppercase tracking-widest">Install OS</span>
           </motion.button>
         )}
       </AnimatePresence>
-      
+
       <CommandPalette 
         isOpen={isCommandPaletteOpen} 
         onClose={() => setIsCommandPaletteOpen(false)} 
         onCommand={handleCommand}
       />
-
-      <div className="fixed top-6 right-6 z-40 flex flex-col items-end gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">{greeting}, {userProfile.name}</span>
-            <span className="text-sm font-display text-jarvis-blue">{phTime}</span>
-          </div>
-          <div className="w-10 h-10 rounded-full border border-jarvis-blue/30 flex items-center justify-center bg-jarvis-blue/5">
-            <Activity size={18} className="text-jarvis-blue animate-pulse" />
-          </div>
-        </div>
-
-        {/* Productivity Stats */}
-        <div className="flex gap-2">
-          <div className="glass-panel px-3 py-1.5 flex items-center gap-2 border-white/5">
-            <div className="flex flex-col items-end">
-              <span className="text-[6px] font-mono text-white/20 uppercase leading-none">Level {userProfile.level}</span>
-              <span className="text-[10px] font-display text-amber-400 uppercase">{userProfile.xp} XP</span>
-            </div>
-          </div>
-          <div className="glass-panel px-3 py-1.5 flex items-center gap-2 border-white/5">
-            <div className="flex flex-col items-end">
-              <span className="text-[6px] font-mono text-white/20 uppercase leading-none">Streak</span>
-              <span className="text-[10px] font-display text-emerald-400 uppercase">{userProfile.streak} Days</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Background Grid */}
       <div className="absolute inset-0 opacity-10 pointer-events-none" 
